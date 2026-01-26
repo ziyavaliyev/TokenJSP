@@ -1,20 +1,14 @@
-import numpy as np
-import torch
 import torch.nn as nn
-from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
+import torch.nn.functional as F
+from torch_geometric.nn import GCNConv
 
-class Encoder(BaseFeaturesExtractor):
-    def __init__(self, observation_space, latent_dim: int = 128):
-        super().__init__(observation_space, features_dim=latent_dim)
-        in_dim = int(np.prod(observation_space.shape))  # flat vector length
 
-        self.net = nn.Sequential(
-            nn.Linear(in_dim, 256),
-            nn.ReLU(),
-            nn.Linear(256, latent_dim),
-            nn.ReLU(),
-        )
+class Encoder(nn.Module):
+    def __init__(self, in_channels: int, hidden_channels: int, out_channels: int):
+        super().__init__()
+        self.conv1 = GCNConv(in_channels, hidden_channels)
+        self.conv2 = GCNConv(hidden_channels, out_channels)
 
-    def forward(self, obs: torch.Tensor) -> torch.Tensor:
-        obs = obs.view(obs.shape[0], -1)
-        return self.net(obs)
+    def forward(self, x, edge_index):
+        x = F.relu(self.conv1(x, edge_index))
+        return self.conv2(x, edge_index)

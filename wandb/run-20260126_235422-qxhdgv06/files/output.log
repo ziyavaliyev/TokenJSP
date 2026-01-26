@@ -1,0 +1,42 @@
+{'epoch': 1, 'loss': tensor(1.0993, grad_fn=<DivBackward0>)}
+{'epoch': 2, 'loss': tensor(1.0459, grad_fn=<DivBackward0>)}
+{'epoch': 3, 'loss': tensor(1.0268, grad_fn=<DivBackward0>)}
+{'epoch': 4, 'loss': tensor(1.0147, grad_fn=<DivBackward0>)}
+Traceback (most recent call last):
+  File "/Users/ziya03/Github/jsp/train_gae.py", line 81, in <module>
+    loss = train_epoch()
+  File "/Users/ziya03/Github/jsp/train_gae.py", line 43, in train_epoch
+    z = model.encode(d.x, d.edge_index)
+  File "/Users/ziya03/anaconda3/envs/ml/lib/python3.10/site-packages/torch_geometric/nn/models/autoencoder.py", line 86, in encode
+    return self.encoder(*args, **kwargs)
+  File "/Users/ziya03/anaconda3/envs/ml/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1775, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/Users/ziya03/anaconda3/envs/ml/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1786, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/Users/ziya03/Github/jsp/encoder.py", line 13, in forward
+    x = F.relu(self.conv1(x, edge_index))
+  File "/Users/ziya03/anaconda3/envs/ml/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1775, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/Users/ziya03/anaconda3/envs/ml/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1786, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/Users/ziya03/anaconda3/envs/ml/lib/python3.10/site-packages/torch_geometric/nn/conv/gcn_conv.py", line 263, in forward
+    out = self.propagate(edge_index, x=x, edge_weight=edge_weight)
+  File "/var/folders/f1/6jkb_2d172b81ynq9s9dnw0h0000gn/T/torch_geometric.nn.conv.gcn_conv_GCNConv_propagate_r2lg1i_l.py", line 245, in propagate
+    out = self.aggregate(
+  File "/Users/ziya03/anaconda3/envs/ml/lib/python3.10/site-packages/torch_geometric/nn/conv/message_passing.py", line 594, in aggregate
+    return self.aggr_module(inputs, index, ptr=ptr, dim_size=dim_size,
+  File "/Users/ziya03/anaconda3/envs/ml/lib/python3.10/site-packages/torch_geometric/experimental.py", line 117, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/ziya03/anaconda3/envs/ml/lib/python3.10/site-packages/torch_geometric/nn/aggr/base.py", line 131, in __call__
+    return super().__call__(x, index=index, ptr=ptr, dim_size=dim_size,
+  File "/Users/ziya03/anaconda3/envs/ml/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1775, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/Users/ziya03/anaconda3/envs/ml/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1786, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/Users/ziya03/anaconda3/envs/ml/lib/python3.10/site-packages/torch_geometric/nn/aggr/basic.py", line 22, in forward
+    return self.reduce(x, index, ptr, dim_size, dim, reduce='sum')
+  File "/Users/ziya03/anaconda3/envs/ml/lib/python3.10/site-packages/torch_geometric/nn/aggr/base.py", line 185, in reduce
+    return scatter(x, index, dim, dim_size, reduce)
+  File "/Users/ziya03/anaconda3/envs/ml/lib/python3.10/site-packages/torch_geometric/utils/_scatter.py", line 70, in scatter
+    return src.new_zeros(size).scatter_add_(dim, index, src)
+KeyboardInterrupt

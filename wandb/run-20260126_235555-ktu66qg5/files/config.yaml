@@ -1,0 +1,83 @@
+_wandb:
+    value:
+        cli_version: 0.24.0
+        e:
+            2j2gisic283kidcc88t676igpd718jkm:
+                apple:
+                    ecpuCores: 4
+                    gpuCores: 7
+                    memoryGb: 8
+                    name: Apple M1
+                    pcpuCores: 4
+                    ramTotalBytes: "8589934592"
+                    swapTotalBytes: "8589934592"
+                codePath: train_gae.py
+                codePathLocal: train_gae.py
+                cpu_count: 8
+                cpu_count_logical: 8
+                disk:
+                    /:
+                        total: "245107195904"
+                        used: "236108869632"
+                email: ziyavaliyev2003@gmail.com
+                executable: /Users/ziya03/anaconda3/envs/ml/bin/python
+                git:
+                    commit: 7545a92fdc14c70055e93ba117766e893464e723
+                    remote: git@github.com:ziyavaliyev/TokenJSP.git
+                host: MacBookAir
+                memory:
+                    total: "8589934592"
+                os: macOS-26.1-arm64-arm-64bit
+                program: /Users/ziya03/Github/jsp/train_gae.py
+                python: CPython 3.10.16
+                root: /Users/ziya03/Github/jsp
+                startedAt: "2026-01-26T22:55:55.319404Z"
+                writerId: 2j2gisic283kidcc88t676igpd718jkm
+        m: []
+        python_version: 3.10.16
+        t:
+            "1":
+                - 1
+                - 77
+                - 105
+            "2":
+                - 1
+                - 77
+                - 105
+            "3":
+                - 13
+                - 16
+            "4": 3.10.16
+            "5": 0.24.0
+            "12": 0.24.0
+            "13": darwin-arm64
+BATCH_SIZE:
+    value: 64
+DEVICE:
+    value: cpu
+EPOCHS:
+    value: 500
+EVAL_EVERY:
+    value: 10
+HIDDEN_CHANNELS:
+    value: 64
+IS_UNDIRECTED:
+    value: false
+LATENT_CHANNELS:
+    value: 32
+LR:
+    value: 0.001
+NPZ_PATH:
+    value: gae_dataset_jsp_6x6.npz
+PROJECT:
+    value: jsp-gae
+RUN_NAME:
+    value: test2
+TEST_RATIO:
+    value: 0.1
+USE_WANDB:
+    value: true
+VAL_RATIO:
+    value: 0.05
+WEIGHT_DECAY:
+    value: 0

@@ -1,0 +1,23 @@
+# config.py
+
+PROJECT = "jsp-gae"
+RUN_NAME = "test2"
+
+NPZ_PATH = "gae_dataset_jsp_6x6.npz"
+
+DEVICE = "cpu"
+BATCH_SIZE = 64
+
+VAL_RATIO = 0.05
+TEST_RATIO = 0.10
+IS_UNDIRECTED = False
+
+HIDDEN_CHANNELS = 64
+LATENT_CHANNELS = 32
+
+EPOCHS = 500
+LR = 1e-3
+WEIGHT_DECAY = 0.0
+EVAL_EVERY = 10
+
+USE_WANDB = True
