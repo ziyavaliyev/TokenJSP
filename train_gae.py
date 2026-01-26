@@ -4,7 +4,7 @@ from torch_geometric.nn import GAE
 import os
 import config as C
 from encoder import Encoder
-from utils import ensure_dir, to_item, npz_to_data_list, split_for_link_pred
+from utils import npz_to_data_list, split_for_link_pred
 
 device = torch.device(C.DEVICE)
 
