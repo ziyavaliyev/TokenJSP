@@ -1,2 +1,6 @@
 __pycache__/
 wandb/
+logs/
+.venv/
+logs/
+checkpoints/

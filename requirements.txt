@@ -1,0 +1,6 @@
+numpy
+scipy
+torch-geometric
+wandb
+graph-jsp-env
+scikit-learn
