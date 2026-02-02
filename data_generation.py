@@ -1,64 +1,80 @@
 from graph_jsp_env.disjunctive_graph_jsp_env import DisjunctiveGraphJspEnv
 from utils import generate_jsp_instance
+from graph_features import clb
 import numpy as np
+import config as C
 
-n_jobs = 6
-n_machines = 6
-T = n_jobs * n_machines  # number of tasks/nodes (without dummies)
+T = C.N_JOBS * C.N_MACHINES  # total tasks
 
-def random_rollout_collect_states(jsp, max_steps=10_000) -> list[tuple[np.ndarray, np.ndarray]]:
+def random_rollout_collect_states(jsp: np.ndarray, max_steps: int = 10_000) -> list[tuple[np.ndarray, np.ndarray]]:
     env = DisjunctiveGraphJspEnv(
         jps_instance=jsp,
         perform_left_shift_if_possible=True,
         normalize_observation_space=True,
         flat_observation_space=False,
         action_mode="task",
+        default_visualisations=getattr(C, "DEFAULT_VISUALISATIONS", []),  # set [] for no UI
     )
-
-    samples = []
 
     obs, info = env.reset()
     done = truncated = False
     steps = 0
+    samples = []
+
+    is_scheduled = np.zeros((T, 1), dtype=np.float32)
 
     while not (done or truncated) and steps < max_steps:
-        # obs shape: (T, T + M + 1)
-        A = obs[:, :T].copy()                 # (T, T)
-        X = obs[:, T:T + n_machines + 1].copy()  # (T, M+1)
-        samples.append((A, X))
+        A = obs[:, :T].copy()
+
+        # base features from the environment (one-hot machine + duration): (T, M+1)
+        base = obs[:, T:T + C.N_MACHINES + 1].copy()
+
+        #CLB
+        clb_data = clb(A, base)
+
+        X = np.concatenate([is_scheduled, clb_data], axis=1).astype(np.float32)  # (T, F)
+
+        samples.append((A.astype(np.float32), X))
 
         valid_actions = env.valid_action_list()
         if not valid_actions:
             break
 
-        action = np.random.choice(valid_actions)
+        action = int(np.random.choice(valid_actions))
+        is_scheduled[action, 0] = 1.0
+
         obs, reward, done, truncated, info = env.step(action)
         steps += 1
 
     return samples
 
 
-all_samples = []
+def main():
+    all_samples: list[tuple[np.ndarray, np.ndarray]] = []
 
-for _ in range(1_000):
-    jsp = generate_jsp_instance(n_jobs=n_jobs, n_machines=n_machines)
-    samples = random_rollout_collect_states(jsp)
-    all_samples.extend(samples)
-    print(f"collected {len(samples)} samples (total={len(all_samples)})")
+    for i in range(C.NUM_INSTANCES):
+        jsp = generate_jsp_instance(n_jobs=C.N_JOBS, n_machines=C.N_MACHINES)
+        samples = random_rollout_collect_states(jsp, max_steps=C.MAX_STEPS)
+        all_samples.extend(samples)
+        print(f"[{i+1}/{C.NUM_INSTANCES}] collected {len(samples)} samples (total={len(all_samples)})")
 
-# Example access:
-A0, X0 = all_samples[0]
-print("A0:", A0.shape, "X0:", X0.shape)
+    A0, X0 = all_samples[0]
+    print("A0:", A0.shape, "X0:", X0.shape)
 
-A_arr = np.stack([A for (A, X) in all_samples], axis=0).astype(np.float32)  # (N, T, T)
-X_arr = np.stack([X for (A, X) in all_samples], axis=0).astype(np.float32)  # (N, T, M+1)
+    A_arr = np.stack([A for (A, X) in all_samples], axis=0).astype(np.float32)  # (N, T, T)
+    X_arr = np.stack([X for (A, X) in all_samples], axis=0).astype(np.float32)  # (N, T, F)
 
-np.savez_compressed(
-    "gae_dataset_jsp_6x6.npz",
-    A=A_arr,
-    X=X_arr,
-    n_jobs=np.array([n_jobs], dtype=np.int32),
-    n_machines=np.array([n_machines], dtype=np.int32),
-)
+    out_path = getattr(C, "OUT_NPZ", f"gae_dataset_jsp_{C.N_JOBS}x{C.N_MACHINES}.npz")
+    np.savez_compressed(
+        out_path,
+        A=A_arr,
+        X=X_arr,
+        n_jobs=np.array([C.N_JOBS], dtype=np.int32),
+        n_machines=np.array([C.N_MACHINES], dtype=np.int32),
+    )
 
-print("Saved:", A_arr.shape, X_arr.shape)
+    print("Saved:", out_path, "A:", A_arr.shape, "X:", X_arr.shape)
+
+
+if __name__ == "__main__":
+    main()

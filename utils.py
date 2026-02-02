@@ -78,12 +78,12 @@ def npz_to_data_list(npz_path: str) -> list[Data]:
     return data_list
 
 # Train, validation, test split
-def split_for_link_pred(data_list: list[Data], val_ratio: float, test_ratio: float, is_undirected: bool) -> tuple[list[Data], list[Data], list[Data]]:
+def split_for_link_pred(data_list: list[Data], val_ratio: float, test_ratio: float) -> tuple[list[Data], list[Data], list[Data]]:
     
     splitter = RandomLinkSplit(
         num_val=val_ratio,
         num_test=test_ratio,
-        is_undirected=is_undirected,
+        is_undirected=False,
         add_negative_train_samples=False,
     )
 

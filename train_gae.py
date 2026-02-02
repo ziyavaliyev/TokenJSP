@@ -18,7 +18,6 @@ train_list, val_list, test_list = split_for_link_pred(
     data_list,
     val_ratio=C.VAL_RATIO,
     test_ratio=C.TEST_RATIO,
-    is_undirected=C.IS_UNDIRECTED,
 )
 
 train_loader = DataLoader(train_list, batch_size=C.BATCH_SIZE, shuffle=True)
@@ -64,7 +63,7 @@ def eval_loader(loader):
 
         edge_label = d.edge_label.view(-1)              # (E,)
         edge_label_index = d.edge_label_index           # (2, E)
-
+        
         pos_edge_index = edge_label_index[:, edge_label == 1]
         neg_edge_index = edge_label_index[:, edge_label == 0]
 
