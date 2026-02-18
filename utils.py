@@ -64,34 +64,36 @@ def npz_to_data_list(npz_path: str) -> list[Data]:
     data = np.load(npz_path)
     A_all = data["A"]  # (N, T, T)
     X_all = data["X"]  # (N, T, F)
+    M_all = data["M"]
 
     data_list = []
     for i in range(A_all.shape[0]):
         A = A_all[i]
         X = X_all[i]
+        M = M_all[i]
 
         src, dst = np.nonzero(A > 0)
         edge_index = torch.tensor(np.stack([src, dst], axis=0), dtype=torch.long)
         x = torch.tensor(X, dtype=torch.float)
+        M = torch.tensor(M, dtype=torch.int)
 
-        data_list.append(Data(x=x, edge_index=edge_index))
+        data_list.append(Data(x=x, edge_index=edge_index, machine=M))
     return data_list
 
 # Train, validation, test split
 def split_for_link_pred(data_list: list[Data], val_ratio: float, test_ratio: float) -> tuple[list[Data], list[Data], list[Data]]:
     
-    splitter = RandomLinkSplit(
-        num_val=val_ratio,
-        num_test=test_ratio,
-        is_undirected=False,
-        add_negative_train_samples=False,
-    )
+    random.seed(42)
+    data_list = data_list.copy()
+    random.shuffle(data_list)
 
-    train_list, val_list, test_list = [], [], []
-    for d in data_list:
-        tr, va, te = splitter(d)
-        train_list.append(tr)
-        val_list.append(va)
-        test_list.append(te)
+    n = len(data_list)
+    n_test = int(n * test_ratio)
+    n_val  = int(n * val_ratio)
+    n_train = n - n_val - n_test
+
+    train_list = data_list[:n_train]
+    val_list   = data_list[n_train:n_train + n_val]
+    test_list  = data_list[n_train + n_val:]
 
     return train_list, val_list, test_list

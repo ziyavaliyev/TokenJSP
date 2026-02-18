@@ -34,7 +34,7 @@ def random_rollout_collect_states(jsp: np.ndarray, max_steps: int = 10_000) -> l
 
         X = np.concatenate([is_scheduled, clb_data], axis=1).astype(np.float32)  # (T, F)
 
-        samples.append((A.astype(np.float32), X))
+        samples.append((A.astype(np.float32), X, base[:,:-1]))
 
         valid_actions = env.valid_action_list()
         if not valid_actions:
@@ -58,22 +58,24 @@ def main():
         all_samples.extend(samples)
         print(f"[{i+1}/{C.NUM_INSTANCES}] collected {len(samples)} samples (total={len(all_samples)})")
 
-    A0, X0 = all_samples[0]
-    print("A0:", A0.shape, "X0:", X0.shape)
+    A0, X0, base0 = all_samples[0]
+    print("A0:", A0.shape, "X0:", X0.shape, "base0:", base0.shape)
 
-    A_arr = np.stack([A for (A, X) in all_samples], axis=0).astype(np.float32)  # (N, T, T)
-    X_arr = np.stack([X for (A, X) in all_samples], axis=0).astype(np.float32)  # (N, T, F)
+    A_arr = np.stack([A for (A, X, base) in all_samples], axis=0).astype(np.float32)  # (N, T, T)
+    X_arr = np.stack([X for (A, X, base) in all_samples], axis=0).astype(np.float32)  # (N, T, F)
+    base_arr = np.stack([base for (A, X, base) in all_samples], axis=0).astype(np.float32)  # (N, T, M)
 
     out_path = getattr(C, "OUT_NPZ", f"gae_dataset_jsp_{C.N_JOBS}x{C.N_MACHINES}.npz")
     np.savez_compressed(
         out_path,
         A=A_arr,
         X=X_arr,
+        M=base_arr,
         n_jobs=np.array([C.N_JOBS], dtype=np.int32),
         n_machines=np.array([C.N_MACHINES], dtype=np.int32),
     )
 
-    print("Saved:", out_path, "A:", A_arr.shape, "X:", X_arr.shape)
+    print("Saved:", out_path, "A:", A_arr.shape, "X:", X_arr.shape, "Machine correspondence:", base_arr.shape)
 
 
 if __name__ == "__main__":

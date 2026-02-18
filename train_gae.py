@@ -5,8 +5,10 @@ import os
 import config as C
 from encoder import Encoder
 from utils import npz_to_data_list, split_for_link_pred
+from sklearn.metrics import roc_auc_score, average_precision_score
+from torch_geometric.utils import negative_sampling
 
-device = torch.device(C.DEVICE)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 if C.USE_WANDB:
     import wandb
@@ -50,7 +52,6 @@ def train_epoch() -> float:
 
     return total_loss / max(n, 1)
 
-
 @torch.no_grad()
 def eval_loader(loader):
     model.eval()
@@ -58,19 +59,33 @@ def eval_loader(loader):
 
     for d in loader:
         d = d.to(device)
+        T = d.num_nodes
 
         z = model.encode(d.x, d.edge_index)
 
-        edge_label = d.edge_label.view(-1)              # (E,)
-        edge_label_index = d.edge_label_index           # (2, E)
-        
-        pos_edge_index = edge_label_index[:, edge_label == 1]
-        neg_edge_index = edge_label_index[:, edge_label == 0]
+        # positives = existing edges (optionally drop self-loops)
+        pos_edge_index = d.edge_index
+        pos_mask = pos_edge_index[0] != pos_edge_index[1]
+        pos_edge_index = pos_edge_index[:, pos_mask]
 
-        auc, ap = model.test(z, pos_edge_index, neg_edge_index)
+        # negatives 1:1 with positives
+        neg_edge_index = negative_sampling(
+            edge_index=pos_edge_index,
+            num_nodes=T,
+            num_neg_samples=pos_edge_index.size(1),
+            method="sparse",
+        )
 
-        aucs.append(float(auc))
-        aps.append(float(ap))
+        edge_label_index = torch.cat([pos_edge_index, neg_edge_index], dim=1)
+        y = torch.cat([
+            torch.ones(pos_edge_index.size(1), device=device),
+            torch.zeros(neg_edge_index.size(1), device=device),
+        ], dim=0)
+
+        probs = model.decoder(z, edge_label_index).sigmoid().view(-1)
+
+        aucs.append(roc_auc_score(y.cpu().numpy(), probs.cpu().numpy()))
+        aps.append(average_precision_score(y.cpu().numpy(), probs.cpu().numpy()))
 
     return sum(aucs) / len(aucs), sum(aps) / len(aps)
 
