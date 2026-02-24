@@ -19,7 +19,7 @@ LR = 1e-3
 WEIGHT_DECAY = 1e-5
 EVAL_EVERY = 10
 
-USE_WANDB = False
+USE_WANDB = True
 
 # dataset generation
 N_JOBS = 6

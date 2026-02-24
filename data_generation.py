@@ -75,7 +75,7 @@ def main():
         n_machines=np.array([C.N_MACHINES], dtype=np.int32),
     )
 
-    print("Saved:", out_path, "A:", A_arr.shape, "X:", X_arr.shape, "Machine correspondence:", base_arr.shape)
+    print("Saved:", out_path, "A:", A_arr.shape, "X:", X_arr.shape, "Machine correspondence:")
 
 
 if __name__ == "__main__":

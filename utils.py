@@ -2,8 +2,6 @@ import numpy as np
 import random
 import torch
 from torch_geometric.data import Data
-from torch_geometric.transforms import RandomLinkSplit
-import os
 
 # It loads a .txt JSP and converts it to "np.array" format
 def load_jsp_txt(path: str) -> np.ndarray:
@@ -59,25 +57,59 @@ def generate_jsp_instance(n_jobs: int, n_machines: int, min_processing_time: int
 
     return specified_jsp
 
-# Reads the .npz data and converts it torch readable format
 def npz_to_data_list(npz_path: str) -> list[Data]:
     data = np.load(npz_path)
-    A_all = data["A"]  # (N, T, T)
-    X_all = data["X"]  # (N, T, F)
-    M_all = data["M"]
+    A_all = data["A"]          # (N, T, T)
+    X_all = data["X"]          # (N, T, F)
+    M_all = data["M"]          # (N, T)  machine ids
+    n_jobs = int(data["n_jobs"][0])
+    n_machines = int(data["n_machines"][0])
 
     data_list = []
+
     for i in range(A_all.shape[0]):
         A = A_all[i]
         X = X_all[i]
-        M = M_all[i]
+        M = M_all[i]                     # (T,)
 
+        T = A.shape[0]
+
+        # ---------- build edge_index ----------
         src, dst = np.nonzero(A > 0)
-        edge_index = torch.tensor(np.stack([src, dst], axis=0), dtype=torch.long)
-        x = torch.tensor(X, dtype=torch.float)
-        M = torch.tensor(M, dtype=torch.int)
+        edge_index = torch.tensor(
+            np.stack([src, dst], axis=0),
+            dtype=torch.long
+        )
 
-        data_list.append(Data(x=x, edge_index=edge_index, machine=M))
+        # ---------- add job one-hot ----------
+        job_id = np.arange(T) // n_machines
+        job_oh = np.eye(n_jobs, dtype=np.float32)[job_id]
+
+        X_aug = np.concatenate([X, job_oh], axis=1)
+
+        # ---------- precedence edges (same job only) ----------
+        prec_src = []
+        prec_dst = []
+        for j in range(n_jobs):
+            start = j * n_machines
+            for k in range(n_machines - 1):
+                prec_src.append(start + k)
+                prec_dst.append(start + k + 1)
+
+        precedence_edge_index = torch.tensor(
+            [prec_src, prec_dst],
+            dtype=torch.long
+        )
+
+        data_list.append(
+            Data(
+                x=torch.tensor(X_aug, dtype=torch.float),
+                edge_index=edge_index,
+                machine=torch.tensor(M, dtype=torch.long).argmax(dim=1).long(),
+                precedence_edge_index=precedence_edge_index
+            )
+        )
+
     return data_list
 
 # Train, validation, test split
@@ -97,3 +129,26 @@ def split_for_link_pred(data_list: list[Data], val_ratio: float, test_ratio: flo
     test_list  = data_list[n_train + n_val:]
 
     return train_list, val_list, test_list
+
+def edge_diff(edge_a, edge_b):
+    """
+    returns edges in edge_a that are not in edge_b
+    """
+    set_a = set(map(tuple, edge_a.t().tolist()))
+    set_b = set(map(tuple, edge_b.t().tolist()))
+
+    diff = list(set_a - set_b)
+
+    if len(diff) == 0:
+        return torch.empty((2, 0), dtype=torch.long)
+
+    return torch.tensor(diff, dtype=torch.long).t()
+
+def edge_sort(edges):
+    src = edges[0]
+    dst = edges[1]
+    max_node = int(edges.max()) + 1
+    key = src * max_node + dst
+    order = torch.argsort(key)
+    edges_sorted = edges[:, order]
+    return edges_sorted

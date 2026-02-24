@@ -4,9 +4,10 @@ from torch_geometric.nn import GAE
 import os
 import config as C
 from encoder import Encoder
-from utils import npz_to_data_list, split_for_link_pred
+from utils import npz_to_data_list, split_for_link_pred, edge_sort, edge_diff
 from sklearn.metrics import roc_auc_score, average_precision_score
 from torch_geometric.utils import negative_sampling
+from loss import masked_recon_loss, build_allowed_edge_index
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -29,7 +30,7 @@ test_loader = DataLoader(test_list, batch_size=C.BATCH_SIZE, shuffle=False)
 
 # Model
 in_channels = train_list[0].x.size(-1)
-model = GAE(Encoder(in_channels, C.HIDDEN_CHANNELS, C.LATENT_CHANNELS)).to(device)
+model = GAE(Encoder(in_channels, C.HIDDEN_CHANNELS, C.LATENT_CHANNELS)).to(device)#, Decoder()
 opt = torch.optim.Adam(model.parameters(), lr=C.LR, weight_decay=C.WEIGHT_DECAY)
 
 
@@ -42,8 +43,11 @@ def train_epoch() -> float:
         opt.zero_grad()
 
         z = model.encode(d.x, d.edge_index)
-        loss = model.recon_loss(z, d.edge_index)
-
+        allowed_edge_index = build_allowed_edge_index(num_nodes=d.num_nodes, machine=d.machine, precedence_edge_index=d.precedence_edge_index, batch = d.batch)
+        neg_edge_index = edge_diff(allowed_edge_index, d.edge_index)
+        neg_edge_index = edge_sort(neg_edge_index)
+        edge_index = torch.cat([d.edge_index, neg_edge_index], axis=1)
+        loss = model.recon_loss(z, d.edge_index, neg_edge_index)
         loss.backward()
         opt.step()
 
@@ -59,36 +63,25 @@ def eval_loader(loader):
 
     for d in loader:
         d = d.to(device)
-        T = d.num_nodes
-
         z = model.encode(d.x, d.edge_index)
-
-        # positives = existing edges (optionally drop self-loops)
+        allowed_edge_index = build_allowed_edge_index(num_nodes=d.num_nodes, machine=d.machine, precedence_edge_index=d.precedence_edge_index, batch = d.batch)
         pos_edge_index = d.edge_index
-        pos_mask = pos_edge_index[0] != pos_edge_index[1]
-        pos_edge_index = pos_edge_index[:, pos_mask]
-
-        # negatives 1:1 with positives
-        neg_edge_index = negative_sampling(
-            edge_index=pos_edge_index,
-            num_nodes=T,
-            num_neg_samples=pos_edge_index.size(1),
-            method="sparse",
-        )
-
-        edge_label_index = torch.cat([pos_edge_index, neg_edge_index], dim=1)
+        neg_edge_index = edge_diff(allowed_edge_index, d.edge_index)
+        neg_edge_index = edge_sort(neg_edge_index)
+        
+        edge_index = torch.cat([pos_edge_index, neg_edge_index], axis=1)
+        
         y = torch.cat([
             torch.ones(pos_edge_index.size(1), device=device),
             torch.zeros(neg_edge_index.size(1), device=device),
-        ], dim=0)
+        ])
 
-        probs = model.decoder(z, edge_label_index).sigmoid().view(-1)
+        probs = model.decoder(z, edge_index)
 
-        aucs.append(roc_auc_score(y.cpu().numpy(), probs.cpu().numpy()))
-        aps.append(average_precision_score(y.cpu().numpy(), probs.cpu().numpy()))
+        aucs.append(roc_auc_score(y.detach().cpu().numpy(), probs.detach().cpu().numpy()))
+        aps.append(average_precision_score(y.detach().cpu().numpy(), probs.detach().cpu().numpy()))
 
     return sum(aucs) / len(aucs), sum(aps) / len(aps)
-
 
 # Training
 for epoch in range(1, C.EPOCHS + 1):
