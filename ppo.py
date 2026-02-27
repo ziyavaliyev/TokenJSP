@@ -9,7 +9,7 @@ from sb3_contrib.common.maskable.utils import get_action_masks
 
 from graph_jsp_env.disjunctive_graph_jsp_env import DisjunctiveGraphJspEnv
 from encoder import Encoder
-from rl_wrapper import FrozenGAEObsWrapper
+from gae_wrapper import FrozenGAEObsWrapper
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 

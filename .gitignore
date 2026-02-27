@@ -3,5 +3,4 @@ wandb/
 logs/
 .venv/
 logs/
-checkpoints/
 .DS_Store
