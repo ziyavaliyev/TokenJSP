@@ -5,24 +5,25 @@ from sklearn.metrics import roc_auc_score, average_precision_score
 import numpy as np
 import json
 
-import config_gae as C #TODO: What to do with configs
-from src.encoder import Encoder
-from src.utils import npz_to_data_list, edge_diff, edge_sort
-from src.loss import build_allowed_edge_index
+from encoder import Encoder
+from utils import npz_to_data_list, edge_diff, edge_sort
+from loss import build_allowed_edge_index
 
-PATH = "weights/encoder_10x10_baseline.pt"
-OUT_PATH = "10x10_baseline.json"
+WEIGHTS_PATH = "runs/gae_gatv2_test/encoder_last.pt"
+OUT_PATH = "evaluation/10x10_gae_gatv2_30ep.json"
+DATA_PATH = "datasets/gae_dataset_jsp_test_10x10.npz"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-data_list = npz_to_data_list(C.NPZ_PATH)
+data_list = npz_to_data_list(DATA_PATH)
 loader = DataLoader(data_list, batch_size=1, shuffle=False)
 
 in_channels = data_list[0].x.size(-1)
-encoder = Encoder(in_channels, C.HIDDEN_CHANNELS, C.LATENT_CHANNELS)
+deg = torch.tensor([ 527644, 4511260, 2961096])
+encoder = Encoder(in_channels, 64, 32, gnn_type="gatv2", deg=deg)
 model = GAE(encoder).to(device)
 
-state = torch.load(PATH, map_location=device)
+state = torch.load(WEIGHTS_PATH, map_location=device)
 model.encoder.load_state_dict(state)
 model.eval()
 print("Encoder loaded successfully.")

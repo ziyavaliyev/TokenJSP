@@ -1,0 +1,26 @@
+program: scripts/gae_train.py
+method: bayes
+
+metric:
+  name: val/ap
+  goal: maximize
+
+parameters:
+  model:
+    values: ["gae", "vgae"]
+
+  learning_rate:
+    values: [1e-4, 1e-3]
+
+  batch_size:
+    values: [32, 64]
+
+command:
+  - ${env}
+  - python
+  - ${program}
+  - --data_path
+  - datasets/gae_dataset_jsp_10x10.npz
+  - --run_name
+  - gae_sweep
+  - --use_wandb

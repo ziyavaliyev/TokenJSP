@@ -11,7 +11,7 @@ from torch_geometric.nn import GAE, VGAE
 
 from encoder import Encoder, VariationalEncoder
 from loss import build_allowed_edge_index
-from utils import npz_to_data_list, split_for_link_pred, edge_sort, edge_diff
+from utils import npz_to_data_list, split_for_link_pred, edge_sort, edge_diff, compute_pna_degree_histogram
 import wandb
 
 
@@ -163,7 +163,7 @@ def main():
     args = parser.parse_args()
 
     default_config = {
-        "epochs": 200,
+        "epochs": 10,
         "batch_size": 32,
         "learning_rate": 1e-3,
         "weight_decay": 0.0,
@@ -172,7 +172,8 @@ def main():
         "val_ratio": 0.1,
         "test_ratio": 0.1,
         "eval_every": 10,
-        "model": "vgae"
+        "model": "gae",
+        "gnn_type": "gcn"
     }
 
     if args.use_wandb:
@@ -182,6 +183,9 @@ def main():
             config=default_config,
         )
         config = wandb.config
+        wandb.log({"device": device})
+        run_name = f"{config.model}_{config.learning_rate}_{config.batch_size}"
+        wandb.run.name = run_name
     else:
         config = default_config
 
@@ -200,12 +204,15 @@ def main():
 
     in_channels = train_list[0].x.size(-1)
     vgae = True if config["model"]=="vgae" else False
+    deg = compute_pna_degree_histogram(train_list)
     if config["model"]=="gae":
         model = GAE(
             Encoder(
                 in_channels=in_channels,
                 hidden_channels=config["hidden_channels"],
                 out_channels=config["latent_channels"],
+                gnn_type=config["gnn_type"],
+                deg=deg
             )
         ).to(device)
     
@@ -215,6 +222,8 @@ def main():
                 in_channels=in_channels,
                 hidden_channels=config["hidden_channels"],
                 out_channels=config["latent_channels"],
+                gnn_type=config["gnn_type"],
+                deg=deg
             )
         ).to(device)
 
@@ -230,7 +239,7 @@ def main():
     for epoch in range(1, config["epochs"] + 1):
 
         train_loss = train_epoch(model, train_loader, opt, vgae)
-
+        
         log = {
             "epoch": epoch,
             "train/loss": train_loss,
@@ -248,22 +257,23 @@ def main():
                 "val/mean_p_true_nonprecedence": val_metrics["mean_p_true_nonprecedence"],
             })
 
-            # save best by val_auc
-            if val_metrics["auc"] > best_val_auc:
-                best_val_auc = val_metrics["auc"]
-                #save_encoder(model, os.path.join(out_dir, "encoder_best_auc.pt"))
-                log["best/val_auc"] = best_val_auc
-
             # save best by val_ap
             if val_metrics["ap"] > best_val_ap:
                 best_val_ap = val_metrics["ap"]
                 #save_encoder(model, os.path.join(out_dir, "encoder_best_ap.pt"))
                 log["best/val_ap"] = best_val_ap
+                path = os.path.join(out_dir, "encoder_best.pt")
+                save_encoder(model, path)
+
+                if args.use_wandb:
+                    artifact = wandb.Artifact(
+                        name=f"encoder-best-{args.run_name}",
+                        type="model"
+                    )
+                    artifact.add_file(path)
+                    wandb.log_artifact(artifact)
 
         print(log)
-
-        # save only the latest checkpoint every epoch
-        save_encoder(model, os.path.join(out_dir, "encoder_last.pt"))
 
         if args.use_wandb:
             wandb.log(log)

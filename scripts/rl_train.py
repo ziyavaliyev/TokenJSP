@@ -56,7 +56,7 @@ def main():
     args = parser.parse_args()
 
     default_config = {
-        "total_steps": 4_000_000,
+        "total_steps": 2_000_000,
         "n_steps": 2000,
         "batch_size": 64,
         "learning_rate": 3e-4,
@@ -80,7 +80,7 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     train_instances = np.load(args.train_data, allow_pickle=False)["data"]
 
-    encoder = Encoder(config["in_channels"], config["hidden"], config["latent"]).to(device)
+    encoder = Encoder(config["in_channels"], config["hidden"], config["latent"], gnn_type="egc").to(device)
     encoder.load_state_dict(torch.load(args.encoder_weights, map_location=device))
     if config["frozen_encoder"]:
         encoder.eval()

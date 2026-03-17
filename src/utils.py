@@ -2,6 +2,7 @@ import numpy as np
 import random
 import torch
 from torch_geometric.data import Data
+from torch_geometric.utils import degree
 
 # It loads a .txt JSP and converts it to "np.array" format
 def load_jsp_txt(path: str) -> np.ndarray:
@@ -152,3 +153,18 @@ def edge_sort(edges):
     order = torch.argsort(key)
     edges_sorted = edges[:, order]
     return edges_sorted
+
+def compute_pna_degree_histogram(data_list):
+    max_degree = 0
+
+    for data in data_list:
+        d = degree(data.edge_index[1], num_nodes=data.num_nodes, dtype=torch.long)
+        max_degree = max(max_degree, int(d.max()))
+
+    deg = torch.zeros(max_degree + 1, dtype=torch.long)
+
+    for data in data_list:
+        d = degree(data.edge_index[1], num_nodes=data.num_nodes, dtype=torch.long)
+        deg += torch.bincount(d, minlength=deg.numel())
+
+    return deg

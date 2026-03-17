@@ -5,7 +5,7 @@ import numpy as np
 
 N_JOBS = 10
 N_MACHINES = 10
-NUM_INSTANCES = 1000
+NUM_INSTANCES = 10
 
 T = N_JOBS * N_MACHINES
 
