@@ -177,13 +177,13 @@ def main():
     if args.use_wandb:
         wandb.init(
             project="jsp-gae",
-            name=args.run_name,
             config=default_config,
         )
         config = wandb.config
-        wandb.config.update({"device": str(device)})
-        run_name = f"{config.model}_{config.learning_rate}_{config.batch_size}"
+        run_name = f"{config.model}_lr{config.learning_rate}_bs{config.batch_size}"
         wandb.run.name = run_name
+
+        wandb.config.update({"device": str(device)})
     else:
         config = default_config
 
