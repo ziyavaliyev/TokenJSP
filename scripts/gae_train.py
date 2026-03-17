@@ -82,10 +82,10 @@ def eval_loader(model, loader, vgae):
             precedence_edge_index=d.precedence_edge_index,
             batch=d.batch,
         )
-        allowed_edge_index = edge_sort(allowed_edge_index)
+        allowed_edge_index = edge_sort(allowed_edge_index).to(device)
 
-        pos_edge_index = edge_sort(d.edge_index)
-        neg_edge_index = edge_sort(edge_diff(allowed_edge_index, pos_edge_index))
+        pos_edge_index = edge_sort(d.edge_index).to(device)
+        neg_edge_index = edge_sort(edge_diff(allowed_edge_index, pos_edge_index)).to(device)
 
         loss = model.recon_loss(z, pos_edge_index, neg_edge_index)
         if vgae:
@@ -93,6 +93,7 @@ def eval_loader(model, loader, vgae):
         losses.append(float(loss.detach()))
 
         edge_index = torch.cat([pos_edge_index, neg_edge_index], dim=1)
+
         y = torch.cat([
             torch.ones(pos_edge_index.size(1), device=device),
             torch.zeros(neg_edge_index.size(1), device=device),
@@ -106,13 +107,11 @@ def eval_loader(model, loader, vgae):
         aucs.append(roc_auc_score(y_np, p_np))
         aps.append(average_precision_score(y_np, p_np))
 
-        # mean positive / negative probabilities
         num_pos = int(pos_edge_index.size(1))
         mean_pos = float(probs[:num_pos].mean().item()) if num_pos > 0 else float("nan")
         mean_neg = float(probs[num_pos:].mean().item()) if neg_edge_index.numel() > 0 else float("nan")
 
-        # precedence vs non-precedence among positive edges
-        prec_edge_index = edge_sort(d.precedence_edge_index)
+        prec_edge_index = edge_sort(d.precedence_edge_index).to(device)
 
         pos_ids = pos_edge_index[0] * T + pos_edge_index[1]
         prec_ids = prec_edge_index[0] * T + prec_edge_index[1]
@@ -149,7 +148,6 @@ def eval_loader(model, loader, vgae):
         "mean_p_precedence_true": float(np.nanmean(mean_prec_list)),
         "mean_p_true_nonprecedence": float(np.nanmean(mean_nonprec_list)),
     }
-
 def save_encoder(model, path):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     torch.save(model.encoder.state_dict(), path)
