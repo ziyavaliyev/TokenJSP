@@ -1,6 +1,10 @@
 numpy
 scipy
+torch
+gymnasium
+stable-baselines3
+sb3-contrib
 torch-geometric
 wandb
-graph-jsp-env
 scikit-learn
+graph-jsp-env
