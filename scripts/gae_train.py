@@ -181,7 +181,7 @@ def main():
             config=default_config,
         )
         config = wandb.config
-        wandb.log({"device": device})
+        wandb.config.update({"device": str(device)})
         run_name = f"{config.model}_{config.learning_rate}_{config.batch_size}"
         wandb.run.name = run_name
     else:
