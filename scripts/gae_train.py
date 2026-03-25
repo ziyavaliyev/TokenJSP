@@ -38,7 +38,7 @@ def train_epoch(model, loader, opt, vgae):
     for d in loader:
         d = d.to(device)
         opt.zero_grad()
-
+        
         z = model.encode(d.x, d.edge_index)
 
         allowed_edge_index = build_allowed_edge_index(
