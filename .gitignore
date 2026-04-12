@@ -7,3 +7,4 @@ logs/
 .vscode/
 runs/
 jsp.egg-info/
+datasets/*.npz
