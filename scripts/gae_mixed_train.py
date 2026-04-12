@@ -209,7 +209,7 @@ def main():
     in_channels = all_train_lists[0].x.size(-1)
     vgae = True if config["model"]=="vgae" else False
     deg = compute_pna_degree_histogram(all_train_lists)
-    print(f"PNA degrees: {deg})
+    print(f"PNA degrees: {deg}")
     if config["model"]=="gae":
         model = GAE(
             Encoder(
