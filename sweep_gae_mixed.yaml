@@ -1,14 +1,14 @@
-program: scripts/gae_train.py
+program: scripts/gae_mixed_train.py
 method: bayes
 
 metric:
-  name: val/ap
+  name: val/ap_average
   goal: maximize
 
 parameters:
   model:
     values: ["gae", "vgae"]
-  
+
   weight_decay:
     values: [0, 1e-5]
 
@@ -22,8 +22,12 @@ command:
   - ${env}
   - python
   - ${program}
-  - --data_path
+  - --data_10
   - datasets/gae_dataset_jsp_10x10.npz
+  - --data_15
+  - datasets/gae_dataset_jsp_15x15.npz
+  - --data_20
+  - datasets/gae_dataset_jsp_20x20.npz
   - --run_name
   - gae_sweep
   - --use_wandb

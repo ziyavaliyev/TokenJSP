@@ -156,7 +156,9 @@ def save_encoder(model, path):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data_path", type=str, required=True)
+    parser.add_argument("--data_10", type=str, required=True)
+    parser.add_argument("--data_15", type=str, required=True)
+    parser.add_argument("--data_20", type=str, required=True)
     parser.add_argument("--run_name", type=str, required=True)
     parser.add_argument("--use_wandb", action="store_true")
     args = parser.parse_args()
@@ -194,16 +196,20 @@ def main():
     with open(os.path.join(out_dir, "config.json"), "w") as f:
         json.dump(dict(config), f, indent=2)
 
-    train_list, val_list, test_list, train_loader, val_loader, test_loader = build_loaders(
-        npz_path=args.data_path,
-        batch_size=config["batch_size"],
-        val_ratio=config["val_ratio"],
-        test_ratio=config["test_ratio"],
-    )
+    datasets = {
+        "10x10": build_loaders(args.data_10, config["batch_size"], config["val_ratio"], config["test_ratio"]),
+        "15x15": build_loaders(args.data_15, config["batch_size"], config["val_ratio"], config["test_ratio"]),
+        "20x20": build_loaders(args.data_20, config["batch_size"], config["val_ratio"], config["test_ratio"]),
+    }
 
-    in_channels = train_list[0].x.size(-1)
+    all_train_lists = []
+    for size_name, (train_list, _, _, _, _, _) in datasets.items():
+        all_train_lists.extend(train_list)
+
+    in_channels = all_train_lists[0].x.size(-1)
     vgae = True if config["model"]=="vgae" else False
-    deg = compute_pna_degree_histogram(train_list)
+    deg = compute_pna_degree_histogram(all_train_lists)
+
     if config["model"]=="gae":
         model = GAE(
             Encoder(
@@ -237,7 +243,12 @@ def main():
 
     for epoch in range(1, config["epochs"] + 1):
 
-        train_loss = train_epoch(model, train_loader, opt, vgae)
+        train_losses = []
+        for size_name, (_, _, _, train_loader, _, _) in datasets.items():
+            loss = train_epoch(model, train_loader, opt, vgae)
+            train_losses.append(loss)
+
+        train_loss = float(np.mean(train_losses))
         
         log = {
             "epoch": epoch,
@@ -245,22 +256,33 @@ def main():
         }
 
         if epoch % config["eval_every"] == 0:
-            val_metrics = eval_loader(model, val_loader, vgae)
+            val_ap_list = []
+            val_auc_list = []
+
+            for size_name, (_, _, _, _, val_loader, _) in datasets.items():
+                val_metrics = eval_loader(model, val_loader, vgae)
+
+                log.update({
+                    f"val/{size_name}/loss": val_metrics["loss"],
+                    f"val/{size_name}/auc": val_metrics["auc"],
+                    f"val/{size_name}/ap": val_metrics["ap"],
+                })
+
+                val_ap_list.append(val_metrics["ap"])
+                val_auc_list.append(val_metrics["auc"])
+
+            val_ap_average = float(np.mean(val_ap_list))
+            val_auc_average = float(np.mean(val_auc_list))
+
             log.update({
-                "val/loss": val_metrics["loss"],
-                "val/auc": val_metrics["auc"],
-                "val/ap": val_metrics["ap"],
-                "val/mean_p_true": val_metrics["mean_p_true"],
-                "val/mean_p_neg": val_metrics["mean_p_neg"],
-                "val/mean_p_precedence_true": val_metrics["mean_p_precedence_true"],
-                "val/mean_p_true_nonprecedence": val_metrics["mean_p_true_nonprecedence"],
+                "val/ap_average": val_ap_average,
+                "val/auc_average": val_auc_average,
             })
 
-            # save best by val_ap
-            if val_metrics["ap"] > best_val_ap:
-                best_val_ap = val_metrics["ap"]
-                #save_encoder(model, os.path.join(out_dir, "encoder_best_ap.pt"))
-                log["best/val_ap"] = best_val_ap
+            if val_ap_average > best_val_ap:
+                best_val_ap = val_ap_average
+                log["best/val_ap_average"] = best_val_ap
+
                 path = os.path.join(out_dir, "encoder_best.pt")
                 save_encoder(model, path)
 
@@ -277,16 +299,46 @@ def main():
         if args.use_wandb:
             wandb.log(log)
 
-    test_metrics = eval_loader(model, test_loader, vgae)
-    test_log = {
-        "test/loss": test_metrics["loss"],
-        "test/auc": test_metrics["auc"],
-        "test/ap": test_metrics["ap"],
-        "test/mean_p_true": test_metrics["mean_p_true"],
-        "test/mean_p_neg": test_metrics["mean_p_neg"],
-        "test/mean_p_precedence_true": test_metrics["mean_p_precedence_true"],
-        "test/mean_p_true_nonprecedence": test_metrics["mean_p_true_nonprecedence"],
-    }
+    test_log = {}
+
+    test_losses = []
+    test_aucs = []
+    test_aps = []
+    test_mean_p_true = []
+    test_mean_p_neg = []
+    test_mean_p_prec = []
+    test_mean_p_nonprec = []
+
+    for size_name, (_, _, _, _, _, test_loader) in datasets.items():
+        test_metrics = eval_loader(model, test_loader, vgae)
+
+        test_log.update({
+            f"test/{size_name}/loss": test_metrics["loss"],
+            f"test/{size_name}/auc": test_metrics["auc"],
+            f"test/{size_name}/ap": test_metrics["ap"],
+            f"test/{size_name}/mean_p_true": test_metrics["mean_p_true"],
+            f"test/{size_name}/mean_p_neg": test_metrics["mean_p_neg"],
+            f"test/{size_name}/mean_p_precedence_true": test_metrics["mean_p_precedence_true"],
+            f"test/{size_name}/mean_p_true_nonprecedence": test_metrics["mean_p_true_nonprecedence"],
+        })
+
+        test_losses.append(test_metrics["loss"])
+        test_aucs.append(test_metrics["auc"])
+        test_aps.append(test_metrics["ap"])
+        test_mean_p_true.append(test_metrics["mean_p_true"])
+        test_mean_p_neg.append(test_metrics["mean_p_neg"])
+        test_mean_p_prec.append(test_metrics["mean_p_precedence_true"])
+        test_mean_p_nonprec.append(test_metrics["mean_p_true_nonprecedence"])
+
+    test_log.update({
+        "test/loss_average": float(np.mean(test_losses)),
+        "test/auc_average": float(np.mean(test_aucs)),
+        "test/ap_average": float(np.mean(test_aps)),
+        "test/mean_p_true_average": float(np.mean(test_mean_p_true)),
+        "test/mean_p_neg_average": float(np.mean(test_mean_p_neg)),
+        "test/mean_p_precedence_true_average": float(np.mean(test_mean_p_prec)),
+        "test/mean_p_true_nonprecedence_average": float(np.mean(test_mean_p_nonprec)),
+    })
 
     print(test_log)
 

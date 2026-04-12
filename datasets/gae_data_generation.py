@@ -3,9 +3,9 @@ from utils import generate_jsp_instance
 from graph_features import clb
 import numpy as np
 
-N_JOBS = 10
-N_MACHINES = 10
-NUM_INSTANCES = 10
+N_JOBS = 20
+N_MACHINES = 20
+NUM_INSTANCES = 25
 
 T = N_JOBS * N_MACHINES
 
@@ -67,7 +67,7 @@ def main():
     X_arr = np.stack([X for (A, X, base) in all_samples], axis=0).astype(np.float32)  # (N, T, F)
     base_arr = np.stack([base for (A, X, base) in all_samples], axis=0).astype(np.float32)  # (N, T, M)
 
-    out_path = f"datasets/gae_dataset_jsp_{N_JOBS}x{N_MACHINES}.npz"
+    out_path = f"datasets/gae_dataset_jsp_test_{N_JOBS}x{N_MACHINES}.npz"
     
     np.savez_compressed(
         out_path,
