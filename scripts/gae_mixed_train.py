@@ -195,13 +195,13 @@ def main():
 
     with open(os.path.join(out_dir, "config.json"), "w") as f:
         json.dump(dict(config), f, indent=2)
-
+    print("Dataset loading starting...")
     datasets = {
         "10x10": build_loaders(args.data_10, config["batch_size"], config["val_ratio"], config["test_ratio"]),
         "15x15": build_loaders(args.data_15, config["batch_size"], config["val_ratio"], config["test_ratio"]),
         "20x20": build_loaders(args.data_20, config["batch_size"], config["val_ratio"], config["test_ratio"]),
     }
-
+    print("Datasets loaded")
     all_train_lists = []
     for size_name, (train_list, _, _, _, _, _) in datasets.items():
         all_train_lists.extend(train_list)
@@ -209,7 +209,7 @@ def main():
     in_channels = all_train_lists[0].x.size(-1)
     vgae = True if config["model"]=="vgae" else False
     deg = compute_pna_degree_histogram(all_train_lists)
-
+    print(f"PNA degrees: {deg})
     if config["model"]=="gae":
         model = GAE(
             Encoder(
