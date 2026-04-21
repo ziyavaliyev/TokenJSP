@@ -174,7 +174,7 @@ def main():
             config=default_config,
         )
         config = wandb.config
-        run_name = f"{config.model}_{config.gnn_type}_bs{config.batch_size}_wd{config.weight_decay}"
+        run_name = f"{config.model}_{config.gnn_type}_bs{config.batch_size}_wd{config.weight_decay}_hc{config.hidden_channels}_lc{config.latent_channels}"
         wandb.run.name = run_name
 
         wandb.config.update({"device": str(device)})
