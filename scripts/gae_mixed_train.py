@@ -14,22 +14,11 @@ from loss import build_allowed_edge_index
 from utils import npz_to_data_list, split_for_link_pred, edge_sort, edge_diff, compute_pna_degree_histogram
 import wandb
 
+from dataset import build_loaders
+import gc
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 
-def build_loaders(npz_path, batch_size, val_ratio, test_ratio):
-    data_list = npz_to_data_list(npz_path)
-    train_list, val_list, test_list = split_for_link_pred(
-        data_list,
-        val_ratio=val_ratio,
-        test_ratio=test_ratio,
-    )
-
-    train_loader = DataLoader(train_list, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_list, batch_size=batch_size, shuffle=False)
-    test_loader = DataLoader(test_list, batch_size=batch_size, shuffle=False)
-
-    return train_list, val_list, test_list, train_loader, val_loader, test_loader
 
 def train_epoch(model, loader, opt, vgae):
     model.train()
@@ -38,7 +27,7 @@ def train_epoch(model, loader, opt, vgae):
     for d in loader:
         d = d.to(device)
         opt.zero_grad()
-        
+
         z = model.encode(d.x, d.edge_index)
 
         allowed_edge_index = build_allowed_edge_index(
@@ -61,6 +50,7 @@ def train_epoch(model, loader, opt, vgae):
         n += 1
 
     return total_loss / max(n, 1)
+
 
 @torch.no_grad()
 def eval_loader(model, loader, vgae):
@@ -149,6 +139,7 @@ def eval_loader(model, loader, vgae):
         "mean_p_true_nonprecedence": float(np.nanmean(mean_nonprec_list)),
     }
 
+
 def save_encoder(model, path):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     torch.save(model.encoder.state_dict(), path)
@@ -164,7 +155,7 @@ def main():
     args = parser.parse_args()
 
     default_config = {
-        "epochs": 30,
+        "epochs": 1,
         "batch_size": 32,
         "learning_rate": 1e-3,
         "weight_decay": 0.0,
@@ -172,7 +163,7 @@ def main():
         "latent_channels": 32,
         "val_ratio": 0.1,
         "test_ratio": 0.1,
-        "eval_every": 5,
+        "eval_every": 1,
         "model": "gae",
         "gnn_type": "gcn"
     }
@@ -196,70 +187,76 @@ def main():
     with open(os.path.join(out_dir, "config.json"), "w") as f:
         json.dump(dict(config), f, indent=2)
 
-    datasets = {
-        "10x10": build_loaders(args.data_10, config["batch_size"], config["val_ratio"], config["test_ratio"]),
-        "15x15": build_loaders(args.data_15, config["batch_size"], config["val_ratio"], config["test_ratio"]),
-        "20x20": build_loaders(args.data_20, config["batch_size"], config["val_ratio"], config["test_ratio"]),
+    data_paths = {
+        "10x10": args.data_10,
+        "15x15": args.data_15,
+        "20x20": args.data_20,
     }
 
-    all_train_lists = []
-    for size_name, (train_list, _, _, _, _, _) in datasets.items():
-        all_train_lists.extend(train_list)
+    vgae = True if config["model"] == "vgae" else False
 
-    in_channels = all_train_lists[0].x.size(-1)
-    vgae = True if config["model"]=="vgae" else False
-    deg = compute_pna_degree_histogram(all_train_lists)
+    all_test_losses = []
+    all_test_aucs = []
+    all_test_aps = []
+    all_test_mean_p_true = []
+    all_test_mean_p_neg = []
+    all_test_mean_p_prec = []
+    all_test_mean_p_nonprec = []
 
-    if config["model"]=="gae":
-        model = GAE(
-            Encoder(
-                in_channels=in_channels,
-                hidden_channels=config["hidden_channels"],
-                out_channels=config["latent_channels"],
-                gnn_type=config["gnn_type"],
-                deg=deg
-            )
-        ).to(device)
-    
-    elif config["model"] == "vgae":
-        model = VGAE(
-            VariationalEncoder(
-                in_channels=in_channels,
-                hidden_channels=config["hidden_channels"],
-                out_channels=config["latent_channels"],
-                gnn_type=config["gnn_type"],
-                deg=deg
-            )
-        ).to(device)
+    for size_name, data_path in data_paths.items():
+        print(f"\n===== Training size {size_name} =====")
 
-    opt = torch.optim.Adam(
-        model.parameters(),
-        lr=config["learning_rate"],
-        weight_decay=config["weight_decay"],
-    )
+        train_set, val_set, test_set, train_loader, val_loader, test_loader = build_loaders(
+            data_path,
+            config["batch_size"],
+            config["val_ratio"],
+            config["test_ratio"],
+        )
 
-    best_val_auc = -float("inf")
-    best_val_ap = -float("inf")
+        in_channels = train_set[0].x.size(-1)
+        deg = compute_pna_degree_histogram(train_set)
 
-    for epoch in range(1, config["epochs"] + 1):
+        if config["model"] == "gae":
+            model = GAE(
+                Encoder(
+                    in_channels=in_channels,
+                    hidden_channels=config["hidden_channels"],
+                    out_channels=config["latent_channels"],
+                    gnn_type=config["gnn_type"],
+                    deg=deg
+                )
+            ).to(device)
 
-        train_losses = []
-        for size_name, (_, _, _, train_loader, _, _) in datasets.items():
-            loss = train_epoch(model, train_loader, opt, vgae)
-            train_losses.append(loss)
+        elif config["model"] == "vgae":
+            model = VGAE(
+                VariationalEncoder(
+                    in_channels=in_channels,
+                    hidden_channels=config["hidden_channels"],
+                    out_channels=config["latent_channels"],
+                    gnn_type=config["gnn_type"],
+                    deg=deg
+                )
+            ).to(device)
 
-        train_loss = float(np.mean(train_losses))
-        
-        log = {
-            "epoch": epoch,
-            "train/loss": train_loss,
-        }
+        opt = torch.optim.Adam(
+            model.parameters(),
+            lr=config["learning_rate"],
+            weight_decay=config["weight_decay"],
+        )
 
-        if epoch % config["eval_every"] == 0:
-            val_ap_list = []
-            val_auc_list = []
+        best_val_auc = -float("inf")
+        best_val_ap = -float("inf")
 
-            for size_name, (_, _, _, _, val_loader, _) in datasets.items():
+        for epoch in range(1, config["epochs"] + 1):
+            train_loss = train_epoch(model, train_loader, opt, vgae)
+
+            log = {
+                "size": size_name,
+                "epoch": epoch,
+                f"train/{size_name}/loss": train_loss,
+            }
+
+            if epoch % config["eval_every"] == 0:
                 val_metrics = eval_loader(model, val_loader, vgae)
 
                 log.update({
@@ -268,51 +265,28 @@ def main():
                     f"val/{size_name}/ap": val_metrics["ap"],
                 })
 
-                val_ap_list.append(val_metrics["ap"])
-                val_auc_list.append(val_metrics["auc"])
+                if val_metrics["ap"] > best_val_ap:
+                    best_val_ap = val_metrics["ap"]
+                    log[f"best/{size_name}/val_ap"] = best_val_ap
 
-            val_ap_average = float(np.mean(val_ap_list))
-            val_auc_average = float(np.mean(val_auc_list))
+                    path = os.path.join(out_dir, f"encoder_best_{size_name}.pt")
+                    save_encoder(model, path)
 
-            log.update({
-                "val/ap_average": val_ap_average,
-                "val/auc_average": val_auc_average,
-            })
+                    if args.use_wandb:
+                        artifact = wandb.Artifact(
+                            name=f"encoder-best-{args.run_name}-{size_name}",
+                            type="model"
+                        )
+                        artifact.add_file(path)
+                        wandb.log_artifact(artifact)
 
-            if val_ap_average > best_val_ap:
-                best_val_ap = val_ap_average
-                log["best/val_ap_average"] = best_val_ap
+            print(log)
 
-                path = os.path.join(out_dir, "encoder_best.pt")
-                save_encoder(model, path)
+            if args.use_wandb:
+                wandb.log(log)
 
-                if args.use_wandb:
-                    artifact = wandb.Artifact(
-                        name=f"encoder-best-{args.run_name}",
-                        type="model"
-                    )
-                    artifact.add_file(path)
-                    wandb.log_artifact(artifact)
-
-        print(log)
-
-        if args.use_wandb:
-            wandb.log(log)
-
-    test_log = {}
-
-    test_losses = []
-    test_aucs = []
-    test_aps = []
-    test_mean_p_true = []
-    test_mean_p_neg = []
-    test_mean_p_prec = []
-    test_mean_p_nonprec = []
-
-    for size_name, (_, _, _, _, _, test_loader) in datasets.items():
         test_metrics = eval_loader(model, test_loader, vgae)
-
-        test_log.update({
+        test_log = {
             f"test/{size_name}/loss": test_metrics["loss"],
             f"test/{size_name}/auc": test_metrics["auc"],
             f"test/{size_name}/ap": test_metrics["ap"],
@@ -320,33 +294,42 @@ def main():
             f"test/{size_name}/mean_p_neg": test_metrics["mean_p_neg"],
             f"test/{size_name}/mean_p_precedence_true": test_metrics["mean_p_precedence_true"],
             f"test/{size_name}/mean_p_true_nonprecedence": test_metrics["mean_p_true_nonprecedence"],
-        })
+        }
+        all_test_losses.append(test_metrics["loss"])
+        all_test_aucs.append(test_metrics["auc"])
+        all_test_aps.append(test_metrics["ap"])
+        all_test_mean_p_true.append(test_metrics["mean_p_true"])
+        all_test_mean_p_neg.append(test_metrics["mean_p_neg"])
+        all_test_mean_p_prec.append(test_metrics["mean_p_precedence_true"])
+        all_test_mean_p_nonprec.append(test_metrics["mean_p_true_nonprecedence"])
 
-        test_losses.append(test_metrics["loss"])
-        test_aucs.append(test_metrics["auc"])
-        test_aps.append(test_metrics["ap"])
-        test_mean_p_true.append(test_metrics["mean_p_true"])
-        test_mean_p_neg.append(test_metrics["mean_p_neg"])
-        test_mean_p_prec.append(test_metrics["mean_p_precedence_true"])
-        test_mean_p_nonprec.append(test_metrics["mean_p_true_nonprecedence"])
+        print(test_log)
 
-    test_log.update({
-        "test/loss_average": float(np.mean(test_losses)),
-        "test/auc_average": float(np.mean(test_aucs)),
-        "test/ap_average": float(np.mean(test_aps)),
-        "test/mean_p_true_average": float(np.mean(test_mean_p_true)),
-        "test/mean_p_neg_average": float(np.mean(test_mean_p_neg)),
-        "test/mean_p_precedence_true_average": float(np.mean(test_mean_p_prec)),
-        "test/mean_p_true_nonprecedence_average": float(np.mean(test_mean_p_nonprec)),
-    })
+        if args.use_wandb:
+            wandb.log({
+                **test_log,
+                "final/model_path_saved": 1,
+            })
 
-    print(test_log)
+        del model, opt, train_set, val_set, test_set, train_loader, val_loader, test_loader
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+    avg_log = {
+        "test/loss_average": float(np.mean(all_test_losses)),
+        "test/auc_average": float(np.mean(all_test_aucs)),
+        "test/ap_average": float(np.mean(all_test_aps)),
+        "test/mean_p_true_average": float(np.mean(all_test_mean_p_true)),
+        "test/mean_p_neg_average": float(np.mean(all_test_mean_p_neg)),
+        "test/mean_p_precedence_true_average": float(np.mean(all_test_mean_p_prec)),
+        "test/mean_p_true_nonprecedence_average": float(np.mean(all_test_mean_p_nonprec)),
+    }
+
+    print(avg_log)
 
     if args.use_wandb:
-        wandb.log({
-            **test_log,
-            "final/model_path_saved": 1,
-        })
+        wandb.log(avg_log)
         wandb.finish()
 
 

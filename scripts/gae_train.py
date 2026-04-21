@@ -15,7 +15,7 @@ from utils import npz_to_data_list, split_for_link_pred, edge_sort, edge_diff, c
 import wandb
 
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")#torch.device("mps" if torch.backends.mps.is_available() else "cpu") #
 
 def build_loaders(npz_path, batch_size, val_ratio, test_ratio):
     data_list = npz_to_data_list(npz_path)
