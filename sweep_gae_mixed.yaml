@@ -19,7 +19,7 @@ parameters:
     values: [16, 32, 64]
 
   hidden_channels:
-    values: [32, 64, 128]
+    values: [32, 64]
 
   batch_size:
     values: [32, 64]
