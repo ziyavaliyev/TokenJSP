@@ -155,7 +155,7 @@ def main():
     args = parser.parse_args()
 
     default_config = {
-        "epochs": 1,
+        "epochs": 30,
         "batch_size": 32,
         "learning_rate": 1e-3,
         "weight_decay": 0.0,
@@ -163,7 +163,7 @@ def main():
         "latent_channels": 32,
         "val_ratio": 0.1,
         "test_ratio": 0.1,
-        "eval_every": 1,
+        "eval_every": 5,
         "model": "gae",
         "gnn_type": "gcn"
     }
