@@ -155,7 +155,7 @@ def main():
     args = parser.parse_args()
 
     default_config = {
-        "epochs": 30,
+        "epochs": 10,
         "batch_size": 32,
         "learning_rate": 1e-3,
         "weight_decay": 0.0,
