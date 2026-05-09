@@ -1,16 +1,16 @@
 import torch
-from torch_geometric.nn import GAE
+from torch_geometric.nn import GAE, VGAE
 from torch_geometric.loader import DataLoader
 from sklearn.metrics import roc_auc_score, average_precision_score
 import numpy as np
 import json
 
-from encoder import Encoder
+from encoder import Encoder, VariationalEncoder
 from utils import npz_to_data_list, edge_diff, edge_sort
 from loss import build_allowed_edge_index
 
-WEIGHTS_PATH = "runs/gae_gatv2_test/encoder_last.pt"
-OUT_PATH = "evaluation/10x10_gae_gatv2_30ep.json"
+WEIGHTS_PATH = "weights/vgae_gatv2_50epochs.pt"
+OUT_PATH = "evaluation/10x10_vgae_gatv2_50ep.json"
 DATA_PATH = "datasets/gae_dataset_jsp_test_10x10.npz"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
