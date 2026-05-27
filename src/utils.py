@@ -193,6 +193,7 @@ def save_encoder(model, path, config, size_name, epoch, val_metrics, in_channels
             "val_auc": float(val_metrics["auc"]),
             "val_ap": float(val_metrics["ap"]),
         },
+        "deg": deg.cpu() if deg is not None else None,
     }
 
     torch.save(ckpt, path)
