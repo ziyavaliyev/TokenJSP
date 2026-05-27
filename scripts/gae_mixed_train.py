@@ -188,9 +188,9 @@ def main():
         json.dump(dict(config), f, indent=2)
 
     data_paths = {
-        "20x20": args.data_20,
         "10x10": args.data_10,
         "15x15": args.data_15,
+        "20x20": args.data_20,
     }
 
     vgae = True if config["model"] == "vgae" else False
