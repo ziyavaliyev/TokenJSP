@@ -3,6 +3,7 @@ import random
 import torch
 from torch_geometric.data import Data
 from torch_geometric.utils import degree
+import os
 
 # It loads a .txt JSP and converts it to "np.array" format
 def load_jsp_txt(path: str) -> np.ndarray:
@@ -168,3 +169,30 @@ def compute_pna_degree_histogram(data_list):
         deg += torch.bincount(d, minlength=deg.numel())
 
     return deg
+
+def save_encoder(model, path, config, size_name, epoch, val_metrics, in_channels, deg=None):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+
+    ckpt = {
+        "encoder_state_dict": model.encoder.state_dict(),
+        "config": {
+            "model": config["model"],              # gae / vgae
+            "gnn_type": config["gnn_type"],
+            "in_dim": int(in_channels),
+            "hidden_dim": int(config["hidden_channels"]),
+            "latent_dim": int(config["latent_channels"]),
+            "batch_size": int(config["batch_size"]),
+            "learning_rate": float(config["learning_rate"]),
+            "weight_decay": float(config["weight_decay"]),
+            "epochs": int(config["epochs"]),
+            "size": size_name,
+        },
+        "metrics": {
+            "epoch": int(epoch),
+            "val_loss": float(val_metrics["loss"]),
+            "val_auc": float(val_metrics["auc"]),
+            "val_ap": float(val_metrics["ap"]),
+        },
+    }
+
+    torch.save(ckpt, path)

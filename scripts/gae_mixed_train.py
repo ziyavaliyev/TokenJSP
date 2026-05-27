@@ -11,7 +11,7 @@ from torch_geometric.nn import GAE, VGAE
 
 from encoder import Encoder, VariationalEncoder
 from loss import build_allowed_edge_index
-from utils import npz_to_data_list, split_for_link_pred, edge_sort, edge_diff, compute_pna_degree_histogram
+from utils import edge_sort, edge_diff, compute_pna_degree_histogram, save_encoder
 import wandb
 
 from dataset import build_loaders
@@ -140,9 +140,9 @@ def eval_loader(model, loader, vgae):
     }
 
 
-def save_encoder(model, path):
+"""def save_encoder(model, path):
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    torch.save(model.encoder.state_dict(), path)
+    torch.save(model.encoder.state_dict(), path)"""
 
 
 def main():
@@ -173,8 +173,8 @@ def main():
             project="jsp-gae",
             config=default_config,
         )
-        config = wandb.config
-        run_name = f"{config.model}_{config.gnn_type}_bs{config.batch_size}_wd{config.weight_decay}_hc{config.hidden_channels}_lc{config.latent_channels}"
+        config = dict(wandb.config)
+        run_name = f"{config['model']}_{config['gnn_type']}"
         wandb.run.name = run_name
 
         wandb.config.update({"device": str(device)})
@@ -188,9 +188,9 @@ def main():
         json.dump(dict(config), f, indent=2)
 
     data_paths = {
+        "20x20": args.data_20,
         "10x10": args.data_10,
         "15x15": args.data_15,
-        "20x20": args.data_20,
     }
 
     vgae = True if config["model"] == "vgae" else False
@@ -269,16 +269,52 @@ def main():
                     best_val_ap = val_metrics["ap"]
                     log[f"best/{size_name}/val_ap"] = best_val_ap
 
-                    path = os.path.join(out_dir, f"encoder_best_{size_name}.pt")
-                    save_encoder(model, path)
+                    file_name = f"{config['model']}_{config['gnn_type']}_{size_name}.pt"
+                    path = os.path.join(out_dir, file_name)
+
+                    save_encoder(
+                        model=model,
+                        path=path,
+                        config=config,
+                        size_name=size_name,
+                        epoch=epoch,
+                        val_metrics=val_metrics,
+                        in_channels=in_channels,
+                        deg=deg,
+                    )
 
                     if args.use_wandb:
+                        artifact_name = f"{config['model']}-{config['gnn_type']}-{size_name}"
+
                         artifact = wandb.Artifact(
-                            name=f"encoder-best-{args.run_name}-{size_name}",
-                            type="model"
+                            name=artifact_name,
+                            type="encoder",
+                            metadata={
+                                "model": config["model"],
+                                "gnn_type": config["gnn_type"],
+                                "size": size_name,
+                                "hidden_channels": config["hidden_channels"],
+                                "latent_channels": config["latent_channels"],
+                                "batch_size": config["batch_size"],
+                                "weight_decay": config["weight_decay"],
+                                "epoch": epoch,
+                                "val_loss": val_metrics["loss"],
+                                "val_auc": val_metrics["auc"],
+                                "val_ap": val_metrics["ap"],
+                            },
                         )
-                        artifact.add_file(path)
-                        wandb.log_artifact(artifact)
+
+                        artifact.add_file(path, name=file_name)
+
+                        wandb.log_artifact(
+                            artifact,
+                            aliases=[
+                                "best",
+                                f"best-{size_name}",
+                                f"epoch-{epoch}",
+                                f"ap-{val_metrics['ap']:.4f}",
+                            ],
+                        )
 
             print(log)
 
