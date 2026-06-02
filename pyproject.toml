@@ -1,10 +1,29 @@
 [project]
-name = "jsp"
+name = "tokenjsp"
 version = "0.1.0"
-dependencies = []
+description = "TokenJSP: Graph Representation Learning for Job Shop Scheduling Problems"
+readme = "README.md"
+requires-python = ">=3.10"
+
+dependencies = [
+    "numpy",
+    "scipy",
+    "torch",
+    "gymnasium",
+    "stable-baselines3",
+    "sb3-contrib",
+    "torch-geometric",
+    "wandb",
+    "scikit-learn",
+    "graph-jsp-env",
+]
+
+authors = [
+    { name = "Ziya Valiyev" }
+]
 
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]

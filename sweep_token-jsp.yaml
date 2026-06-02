@@ -1,0 +1,32 @@
+program: scripts/train.py
+method: grid
+
+metric:
+  name: test/ap_average
+  goal: maximize
+
+parameters:
+  model.gnn_type:
+    values: ["gcn", "egc", "gin", "pna", "gat", "gatv2"]
+
+  model.type:
+    values: ["gae", "vgae"]
+
+  model.hidden_channels:
+    values: [64]
+
+  model.latent_channels:
+    values: [32]
+
+  training.batch_size:
+    values: [64]
+
+  training.weight_decay:
+    values: [1e-5]
+
+command:
+  - ${env}
+  - python
+  - ${program}
+  - --config
+  - configs/mixed_train.yaml

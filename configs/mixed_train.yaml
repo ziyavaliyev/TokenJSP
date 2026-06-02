@@ -1,0 +1,25 @@
+data:
+  data_6x6: datasets/gae_dataset_jsp_6x6.npz
+  #data_10x10: datasets/gae_dataset_jsp_10x10.npz
+  #data_15x15: datasets/gae_dataset_jsp_15x15.npz
+  #data_20x20: datasets/gae_dataset_jsp_20x20.npz
+
+training:
+  epochs: 10
+  batch_size: 64
+  learning_rate: 0.001
+  weight_decay: 0.00001
+  val_ratio: 0.1
+  test_ratio: 0.1
+  eval_every: 5
+
+model:
+  model: vgae
+  gnn_type: gatv2
+  hidden_channels: 64
+  latent_channels: 32
+
+logging:
+  run_name: gae_mixed
+  use_wandb: true
+  project: jsp-scripts
