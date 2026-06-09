@@ -71,7 +71,7 @@ The datasets are hosted on Zenodo:
 
 **Dataset DOI**
 
-[TokenJSP Dataset (Zenodo)](https://zenodo.org/records/20511312?utm_source=chatgpt.com)
+[TokenJSP Dataset (Zenodo)](https://zenodo.org/records/20511312)
 
 Download all dataset files and place them inside the `datasets/` directory:
 
