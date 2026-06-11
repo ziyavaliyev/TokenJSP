@@ -9,8 +9,6 @@ The repository provides tools for:
 - Generating graph datasets from JSP instances
 - Training graph encoders using GAE and VGAE
 - Evaluating learned graph representations
-- Comparing different GNN architectures
-- Using pretrained encoder weights
 
 The project was developed as part of a Master's thesis on graph-based tokenization methods for JSP state representations.
 
@@ -237,13 +235,34 @@ python scripts/test.py \
 Reported metrics include:
 
 - Reconstruction Loss
-- ROC-AUC
+- ROC-AUC (AUC)
 - Average Precision (AP)
 - Mean probability of positive edges
 - Mean probability of negative edges
 - Precedence-edge reconstruction statistics
 
-Results are exported as JSON files.
+---
+
+## Results
+
+To evaluate the quality of the learned graph representations, we trained both Graph Autoencoders (GAE) and Variational Graph Autoencoders (VGAE) using different Graph Neural Network (GNN) encoder architectures. The models were trained on mixed-size Job Shop Scheduling Problem (JSSP) datasets and evaluated on a link prediction task.
+
+The reported metrics include Average Precision (AP), Area Under the ROC Curve (AUC), Mean Average True (MAT), Mean Precedence Average True (MPAT), Mean Non-Precedence Average True (MNPAT), and Mean Average Negative (MAN). Higher values are desirable for AP, AUC, MAT, MPAT, and MNPAT, while lower MAN values indicate better separation between existing and non-existing graph edges.
+
+The results show that attention-based architectures (GATv2) achieve the strongest overall reconstruction performance, while VGAE generally provides a small but consistent improvement over deterministic GAE models.
+
+| Model | GNN | AP | AUC | MAT | MPAT | MNPAT | MAN |
+|---------|---------|---------|---------|---------|---------|---------|---------|
+| VGAE | GATv2 | 95.4% | 99.5% | 97.0% | 100.0% | 90.3% | 3.3% |
+| GAE | GATv2 | 95.4% | 99.5% | 96.8% | 100.0% | 89.8% | 3.2% |
+| VGAE | GAT | 95.1% | 99.4% | 96.9% | 100.0% | 90.3% | 3.5% |
+| GAE | GAT | 95.2% | 99.4% | 96.9% | 100.0% | 90.1% | 3.5% |
+| VGAE | EGConv | 95.0% | 99.4% | 97.6% | 100.0% | 92.4% | 6.3% |
+| GAE | EGConv | 95.2% | 99.4% | 97.3% | 100.0% | 91.5% | 5.5% |
+| VGAE | GIN | 94.6% | 99.4% | 97.5% | 99.8% | 92.6% | 6.7% |
+| GAE | GIN | 93.8% | 99.4% | 97.1% | 99.8% | 91.3% | 5.5% |
+| VGAE | PNA | 88.1% | 98.8% | 95.9% | 99.4% | 88.2% | 8.1% |
+| GAE | PNA | 70.5% | 95.5% | 89.7% | 91.6% | 85.5% | 20.7% |
 
 ---
 
